@@ -1,0 +1,43 @@
+import express from 'express';
+import cors from 'cors';
+import 'dotenv/config';
+import { clerkMiddleware } from '@clerk/express'
+import { serve } from "inngest/express";
+import { inngest, functions } from "./inngest/index.js";
+import workspaceRouter from './routes/workspaceRoutes.js';
+import { protect } from './middleware/authMiddleware.js';
+import projectRouter from './routes/projectRoutes.js';
+import taskRouter from './routes/taskRoutes.js';
+import commentRouter from './routes/commentRoutes.js';
+
+const app = express();
+app.use(express.json());
+const allowedOrigins = ['https://work-flow-flame.vercel.app', 'http://localhost:5173'];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+app.use(clerkMiddleware());
+
+app.get('/', (req, res) => res.send('server is live!'));
+app.use("/api/inngest", serve({ client: inngest, functions }));
+
+//Routes
+app.use('/api/workspaces', protect, workspaceRouter);
+app.use('/api/projects', protect, projectRouter);
+app.use('/api/tasks', protect, taskRouter);
+app.use('/api/comments', protect, commentRouter);
+
+
+
+const PORT = 5001;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
