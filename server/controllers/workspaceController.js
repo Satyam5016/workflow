@@ -1,9 +1,71 @@
 import prisma from "../configs/prisma.js";
+import { clerkClient } from "@clerk/express";
+
+// Ensure the authenticated user and all of their Clerk org memberships
+// exist in our DB. Lets the app work even when the Clerk → Inngest webhook
+// hasn't fired yet (local dev, missing webhook secret, Inngest down, etc.).
+const syncUserAndWorkspacesFromClerk = async (userId) => {
+    let dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!dbUser) {
+        const clerkUser = await clerkClient.users.getUser(userId);
+        const email = clerkUser.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+            || clerkUser.emailAddresses?.[0]?.emailAddress;
+        if (!email) return;
+        dbUser = await prisma.user.upsert({
+            where: { id: userId },
+            update: {},
+            create: {
+                id: userId,
+                email,
+                name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || email,
+                image: clerkUser.imageUrl || "",
+            },
+        });
+    }
+
+    const { data: memberships } = await clerkClient.users.getOrganizationMembershipList({ userId });
+    if (!memberships?.length) return;
+
+    for (const membership of memberships) {
+        const org = membership.organization;
+        if (!org?.id) continue;
+
+        await prisma.workspace.upsert({
+            where: { id: org.id },
+            update: {
+                name: org.name,
+                slug: org.slug,
+                image_url: org.imageUrl || "",
+            },
+            create: {
+                id: org.id,
+                name: org.name,
+                slug: org.slug,
+                ownerId: org.createdBy || userId,
+                image_url: org.imageUrl || "",
+            },
+        });
+
+        const role = String(membership.role || "").toLowerCase().includes("admin") ? "ADMIN" : "MEMBER";
+        await prisma.workspaceMember.upsert({
+            where: { userId_workspaceId: { userId, workspaceId: org.id } },
+            update: { role },
+            create: { userId, workspaceId: org.id, role },
+        });
+    }
+};
 
 // Get all workspaces for user
 export const getUserWorkspaces = async (req, res) => {
     try {
         const { userId } = await req.auth();
+
+        try {
+            await syncUserAndWorkspacesFromClerk(userId);
+        } catch (syncError) {
+            console.error("Clerk → DB sync failed:", syncError?.message || syncError);
+        }
+
         const workspaces = await prisma.workspace.findMany({
             where: {
                 members: { some: { userId: userId } }
@@ -21,7 +83,6 @@ export const getUserWorkspaces = async (req, res) => {
         });
         res.json({ workspaces });
     } catch (error) {
-        // Error handling logic typically goes here
         console.error(error);
         res.status(500).json({ message: error.code || error.message });
     }
