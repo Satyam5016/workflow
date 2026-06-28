@@ -1,4 +1,7 @@
 import prisma from "../configs/prisma.js";
+import { buildChangeSet, createActivity } from "../utils/activityLogger.js";
+import { createNotification, createNotifications, projectLink } from "../utils/notificationService.js";
+import { canManageProject, userHasWorkspacePermission, WorkspacePermission } from "../utils/permissions.js";
 
 
 // Create project
@@ -18,8 +21,8 @@ export const createProject = async (req, res) => {
             return res.status(404).json({ message: "Workspace not found" });
         }
 
-        if (!workspace.members.some((member) => member.userId === userId && member.role === "ADMIN")) {
-            return res.status(403).json({ message: "you dont have admin access to create projects in this workspace" });
+        if (!userHasWorkspacePermission(workspace, userId, WorkspacePermission.CREATE_PROJECTS)) {
+            return res.status(403).json({ message: "You don't have permission to create projects in this workspace" });
         }
 
         // Get Team Lead using email
@@ -64,7 +67,15 @@ export const createProject = async (req, res) => {
                 members: { include: { user: true } },
                 tasks: {
                     include: {
-                        assignee: true, comments: {
+                        assignee: true,
+                        attachments: { include: { user: true }, orderBy: { createdAt: "desc" } },
+                        subtasks: { orderBy: { createdAt: "asc" } },
+                        milestone: true,
+                        labels: true,
+                        timeEntries: { include: { user: true }, orderBy: { loggedAt: "desc" } },
+                        dependsOn: { select: { id: true, title: true, status: true, due_date: true, priority: true } },
+                        blockedBy: { select: { id: true, title: true, status: true, due_date: true, priority: true } },
+                        comments: {
                             include: {
                                 user:
                                     true
@@ -72,9 +83,37 @@ export const createProject = async (req, res) => {
                         }
                     }
                 },
-                owner: true
+                owner: true,
+                labels: { orderBy: { name: "asc" } },
+                milestones: {
+                    include: {
+                        tasks: {
+                            include: {
+                                assignee: true,
+                                labels: true,
+                                dependsOn: { select: { id: true, title: true, status: true } },
+                                blockedBy: { select: { id: true, title: true, status: true } },
+                            }
+                        }
+                    },
+                    orderBy: [{ due_date: "asc" }, { createdAt: "asc" }]
+                }
             }
         })
+
+        await createActivity({
+            action: "PROJECT_CREATED",
+            message: `created project "${project.name}"`,
+            userId,
+            workspaceId,
+            projectId: project.id,
+            metadata: {
+                name,
+                status,
+                priority,
+                teamLeadId: teamLead?.id || null,
+            },
+        });
 
         res.json({ project: projectWithMembers, message: "Project created successfully" })
 
@@ -100,18 +139,18 @@ export const updateProject = async (req, res) => {
         if (!workspace) {
             return res.status(404).json({ message: "Workspace not found" });
         }
-        if (!workspace.members.some((member) => member.userId === userId && member.role === "ADMIN")) {
-            const project = await prisma.project.findUnique({
-                where: { id }
-            })
+        const existingProject = await prisma.project.findUnique({
+            where: { id }
+        })
 
-            if (!project) {
-                return res.status(404).json({ message: "Project not found" });
-            } else if (project.team_lead !== userId) {
-                return res.status(403).json({
-                    message: "You don't have permission to update projects in this workspace"
-                });
-            }
+        if (!existingProject) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        if (!canManageProject(existingProject, workspace, userId)) {
+            return res.status(403).json({
+                message: "You don't have permission to update this project"
+            });
         }
         const project = await prisma.project.update({
             where: { id },
@@ -126,6 +165,43 @@ export const updateProject = async (req, res) => {
                 end_date: end_date ? new Date(end_date) : null,
             }
         })
+
+        const changes = buildChangeSet(existingProject, project, [
+            "name",
+            "description",
+            "status",
+            "priority",
+            "progress",
+            "start_date",
+            "end_date",
+        ]);
+
+        if (Object.keys(changes).length > 0) {
+            await createActivity({
+                action: "PROJECT_UPDATED",
+                message: `updated project "${project.name}"`,
+                userId,
+                workspaceId,
+                projectId: id,
+                metadata: { changes },
+            });
+
+            const projectMembers = await prisma.projectMember.findMany({
+                where: { projectId: id, userId: { not: userId } },
+            });
+
+            await createNotifications(projectMembers.map((member) => ({
+                userId: member.userId,
+                type: "PROJECT_UPDATED",
+                title: "Project updated",
+                message: `"${project.name}" was updated`,
+                link: projectLink(id, "activity"),
+                metadata: {
+                    projectId: id,
+                    changes,
+                },
+            })));
+        }
 
         res.json({ project, message: "Project updated successfully" })
 
@@ -145,14 +221,14 @@ export const addMember = async (req, res) => {
         // Check if user is project lead
         const project = await prisma.project.findUnique({
             where: { id: projectId },
-            include: { members: { include: { user: true } } }
+            include: { members: { include: { user: true } }, workspace: { include: { members: true } } }
         })
 
         if (!project) {
             return res.status(404).json({ message: "Project not found" });
         }
-        if (project.team_lead !== userId) {
-            return res.status(403).json({ message: "Only project lead can add members" });
+        if (!canManageProject(project, project.workspace, userId)) {
+            return res.status(403).json({ message: "You don't have permission to add project members" });
         }
 
         // Check if user is already a member
@@ -174,6 +250,29 @@ export const addMember = async (req, res) => {
             }
         })
 
+        await createActivity({
+            action: "PROJECT_MEMBER_ADDED",
+            message: `added ${user.name} to project "${project.name}"`,
+            userId,
+            workspaceId: project.workspaceId,
+            projectId,
+            metadata: {
+                addedUserId: user.id,
+                addedUserEmail: user.email,
+            },
+        });
+
+        await createNotification({
+            userId: user.id,
+            type: "PROJECT_MEMBER_ADDED",
+            title: "Added to project",
+            message: `You were added to "${project.name}"`,
+            link: projectLink(projectId),
+            metadata: {
+                projectId,
+            },
+        });
+
         res.json({ member, message: "Member added successfully" })
 
     } catch (error) {
@@ -181,3 +280,46 @@ export const addMember = async (req, res) => {
         res.status(500).json({ message: error.code || error.message })
     }
 }
+
+// Delete project
+export const deleteProject = async (req, res) => {
+    try {
+        const { userId } = await req.auth();
+        const { projectId } = req.params;
+
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            include: { workspace: { include: { members: true } } }
+        });
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        const canDelete = project.team_lead === userId || userHasWorkspacePermission(project.workspace, userId, WorkspacePermission.DELETE_PROJECTS);
+
+        if (!canDelete) {
+            return res.status(403).json({ message: "You don't have permission to delete this project" });
+        }
+
+        await createActivity({
+            action: "PROJECT_UPDATED",
+            message: `deleted project "${project.name}"`,
+            userId,
+            workspaceId: project.workspaceId,
+            projectId: null,
+            metadata: {
+                deleted: true,
+                projectId: project.id,
+                name: project.name,
+            },
+        });
+
+        await prisma.project.delete({ where: { id: projectId } });
+
+        res.json({ message: "Project deleted successfully" });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: error.code || error.message });
+    }
+};

@@ -21,6 +21,8 @@ const ProjectAnalytics = ({ project, tasks }) => {
             inProgress: 0,
             todo: 0,
             overdue: 0,
+            estimatedHours: 0,
+            loggedHours: 0,
         };
 
         const statusMap = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
@@ -32,6 +34,8 @@ const ProjectAnalytics = ({ project, tasks }) => {
             if (t.status === "IN_PROGRESS") stats.inProgress++;
             if (t.status === "TODO") stats.todo++;
             if (new Date(t.due_date) < now && t.status !== "DONE") stats.overdue++;
+            stats.estimatedHours += Number(t.estimated_hours || 0);
+            stats.loggedHours += (t.timeEntries || []).reduce((sum, entry) => sum + Number(entry.hours || 0), 0);
 
             if (statusMap[t.status] !== undefined) statusMap[t.status]++;
             if (typeMap[t.type] !== undefined) typeMap[t.type]++;
@@ -41,7 +45,7 @@ const ProjectAnalytics = ({ project, tasks }) => {
         return {
             stats,
             statusData: Object.entries(statusMap).map(([k, v]) => ({ name: k.replace("_", " "), value: v })),
-            typeData: Object.entries(typeMap).filter(([_, v]) => v > 0).map(([k, v]) => ({ name: k, value: v })),
+            typeData: Object.entries(typeMap).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, value: v })),
             priorityData: Object.entries(priorityMap).map(([k, v]) => ({
                 name: k,
                 value: v,
@@ -81,12 +85,26 @@ const ProjectAnalytics = ({ project, tasks }) => {
             icon: <Users className="size-5 text-purple-600 dark:text-purple-400" />,
             bg: "bg-purple-200 dark:bg-purple-500/10",
         },
+        {
+            label: "Estimated Hours",
+            value: `${stats.estimatedHours.toFixed(1)}h`,
+            color: "text-amber-600 dark:text-amber-400",
+            icon: <Clock className="size-5 text-amber-600 dark:text-amber-400" />,
+            bg: "bg-amber-200 dark:bg-amber-500/10",
+        },
+        {
+            label: "Logged Hours",
+            value: `${stats.loggedHours.toFixed(1)}h`,
+            color: "text-indigo-600 dark:text-indigo-400",
+            icon: <Clock className="size-5 text-indigo-600 dark:text-indigo-400" />,
+            bg: "bg-indigo-200 dark:bg-indigo-500/10",
+        },
     ];
 
     return (
         <div className="space-y-6">
             {/* Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {metrics.map((m, i) => (
                     <div
                         key={i}

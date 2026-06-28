@@ -1,8 +1,9 @@
 import { format } from "date-fns";
-import { Plus, Save } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import AddProjectMember from "./AddProjectMember";
 import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 import { useAuth } from "@clerk/clerk-react";
@@ -10,6 +11,7 @@ import { fetchWorkspaces } from "../features/workspaceSlice";
 
 export default function ProjectSettings({ project }) {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const {getToken} = useAuth();
     const [formData, setFormData] = useState({
         name: "New Website Launch",
@@ -23,6 +25,7 @@ export default function ProjectSettings({ project }) {
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -43,6 +46,30 @@ export default function ProjectSettings({ project }) {
             toast.error(error.response?.data?.message || error.message);
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        const confirmed = window.confirm(`Delete project "${project.name}"? This will delete its tasks and related data.`);
+        if (!confirmed) return;
+
+        setIsDeleting(true);
+        toast.loading("Deleting project...");
+        try {
+            const { data } = await api.delete(`/api/projects/${project.id}`, {
+                headers: {
+                    Authorization: `Bearer ${await getToken()}`,
+                },
+            });
+            await dispatch(fetchWorkspaces({ getToken }));
+            toast.dismissAll();
+            toast.success(data.message);
+            navigate("/projects");
+        } catch (error) {
+            toast.dismissAll();
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -146,6 +173,14 @@ export default function ProjectSettings({ project }) {
                             ))}
                         </div>
                     )}
+                </div>
+
+                <div className={cardClasses}>
+                    <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-300 mb-2">Danger Zone</h2>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">Delete this project and all related tasks, comments, files, and activity.</p>
+                    <button type="button" onClick={handleDeleteProject} disabled={isDeleting} className="flex items-center gap-2 px-4 py-2 rounded bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50">
+                        <Trash2 className="size-4" /> {isDeleting ? "Deleting..." : "Delete Project"}
+                    </button>
                 </div>
             </div>
         </div>

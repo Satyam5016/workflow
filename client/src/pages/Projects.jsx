@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import { Plus, Search, FolderOpen } from "lucide-react";
+import { FilterIcon, FolderOpen, Plus, Search } from "lucide-react";
 import ProjectCard from "../components/ProjectCard";
 import CreateProjectDialog from "../components/CreateProjectDialog";
 
@@ -10,7 +10,6 @@ export default function Projects() {
         (state) => state?.workspace?.currentWorkspace?.projects || []
     );
 
-    const [filteredProjects, setFilteredProjects] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [filters, setFilters] = useState({
@@ -18,7 +17,7 @@ export default function Projects() {
         priority: "ALL",
     });
 
-    const filterProjects = () => {
+    const filteredProjects = useMemo(() => {
         let filtered = projects;
 
         if (searchTerm) {
@@ -39,63 +38,63 @@ export default function Projects() {
             );
         }
 
-        setFilteredProjects(filtered);
-    };
-
-    useEffect(() => {
-        filterProjects();
+        return filtered;
     }, [projects, searchTerm, filters]);
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
-            {/* Header */}
+        <div className="space-y-6">
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1"> Projects </h1>
-                    <p className="text-gray-500 dark:text-zinc-400 text-sm"> Manage and track your projects </p>
+                    <h1 className="text-2xl sm:text-3xl font-semibold text-slate-950 dark:text-white mb-1"> Projects </h1>
+                    <p className="text-slate-500 dark:text-zinc-400 text-sm"> Manage delivery, priority, ownership, and roadmap progress. </p>
                 </div>
-                <button onClick={() => setIsDialogOpen(true)} className="flex items-center px-5 py-2 text-sm rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:opacity-90 transition" >
+                <button onClick={() => setIsDialogOpen(true)} className="inline-flex items-center px-5 py-2.5 text-sm rounded-lg bg-teal-600 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition" >
                     <Plus className="size-4 mr-2" /> New Project
                 </button>
                 <CreateProjectDialog isDialogOpen={isDialogOpen} setIsDialogOpen={setIsDialogOpen} />
             </div>
+            </div>
 
-            {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-zinc-400 w-4 h-4" />
-                    <input onChange={(e) => setSearchTerm(e.target.value)} value={searchTerm} className="w-full pl-10 text-sm pr-4 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 focus:border-blue-500 outline-none" placeholder="Search projects..." />
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative w-full md:max-w-md">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-zinc-500 w-4 h-4" />
+                    <input onChange={(e) => setSearchTerm(e.target.value)} value={searchTerm} className="w-full pl-10 text-sm pr-4 py-2.5 rounded-lg border border-slate-200 bg-slate-50 dark:bg-zinc-900 dark:border-zinc-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none" placeholder="Search projects..." />
                 </div>
-                <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="px-3 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white text-sm" >
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-zinc-400">
+                    <FilterIcon className="size-4" />
+                    <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="px-3 py-2.5 rounded-lg border border-slate-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-slate-900 dark:text-white text-sm" >
                     <option value="ALL">All Status</option>
                     <option value="ACTIVE">Active</option>
                     <option value="PLANNING">Planning</option>
                     <option value="COMPLETED">Completed</option>
                     <option value="ON_HOLD">On Hold</option>
                     <option value="CANCELLED">Cancelled</option>
-                </select>
-                <select value={filters.priority} onChange={(e) => setFilters({ ...filters, priority: e.target.value })} className="px-3 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 text-gray-900 dark:text-white text-sm" >
+                    </select>
+                    <select value={filters.priority} onChange={(e) => setFilters({ ...filters, priority: e.target.value })} className="px-3 py-2.5 rounded-lg border border-slate-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 text-slate-900 dark:text-white text-sm" >
                     <option value="ALL">All Priority</option>
                     <option value="HIGH">High</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="LOW">Low</option>
-                </select>
+                    </select>
+                </div>
+                </div>
             </div>
 
-            {/* Projects Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProjects.length === 0 ? (
-                    <div className="col-span-full text-center py-16">
-                        <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-                            <FolderOpen className="w-12 h-12 text-gray-400 dark:text-zinc-500" />
+                    <div className="col-span-full rounded-lg border border-dashed border-slate-300 bg-white text-center py-16 dark:border-zinc-800 dark:bg-zinc-950">
+                        <div className="w-20 h-20 mx-auto mb-6 bg-slate-100 dark:bg-zinc-900 rounded-lg flex items-center justify-center">
+                            <FolderOpen className="w-10 h-10 text-slate-400 dark:text-zinc-500" />
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
                             No projects found
                         </h3>
-                        <p className="text-gray-500 dark:text-zinc-400 mb-6 text-sm">
+                        <p className="text-slate-500 dark:text-zinc-400 mb-6 text-sm">
                             Create your first project to get started
                         </p>
-                        <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mx-auto text-sm" >
+                        <button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg mx-auto text-sm" >
                             <Plus className="size-4" />
                             Create Project
                         </button>

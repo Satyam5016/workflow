@@ -17,19 +17,25 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!organization) {
+            toast.error("No active workspace selected. Reopen the workspace and try again.");
+            return;
+        }
         setIsSubmitting(true);
 
         try {
-            // Simulate API call to send invitation
-            await organization.inviteMember({
-                emailAddress: formData.email,
+            const invitation = await organization.inviteMember({
+                emailAddress: formData.email.trim(),
                 role: formData.role,
-            })
-            toast.success("Invitation sent successfully!");
+            });
+            console.log("Clerk invitation created:", invitation);
+            toast.success(`Invitation sent to ${formData.email.trim()}`);
+            setFormData({ email: "", role: "org:member" });
             setIsDialogOpen(false);
         } catch (error) {
-            console.log(error);
-            toast.error(error.response?.data?.message || error.message);
+            console.error("Invite error:", error);
+            const clerkMessage = error?.errors?.[0]?.longMessage || error?.errors?.[0]?.message;
+            toast.error(clerkMessage || error?.message || "Failed to send invitation");
         } finally {
             setIsSubmitting(false);
         }
@@ -70,8 +76,10 @@ const InviteMemberDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         <label className="text-sm font-medium text-zinc-900 dark:text-zinc-200">Role</label>
                         <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full rounded border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 py-2 px-3 mt-1 focus:outline-none focus:border-blue-500 text-sm" >
                             <option value="org:member">Member</option>
+                            <option value="org:manager">Manager</option>
                             <option value="org:admin">Admin</option>
                         </select>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Manager role must exist in Clerk organization roles.</p>
                     </div>
 
                     {/* Footer */}

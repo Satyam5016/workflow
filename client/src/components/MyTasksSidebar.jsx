@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CheckSquareIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
@@ -10,7 +10,6 @@ function MyTasksSidebar() {
 
     const { currentWorkspace } = useSelector((state) => state.workspace);
     const [showMyTasks, setShowMyTasks] = useState(false);
-    const [myTasks, setMyTasks] = useState([]);
 
     const toggleMyTasks = () => setShowMyTasks(prev => !prev);
 
@@ -27,19 +26,13 @@ function MyTasksSidebar() {
         }
     };
 
-    const fetchUserTasks = () => {
+    const myTasks = useMemo(() => {
         const userId = user?.id || '';
-        if (!userId || !currentWorkspace) return;
-        const currentWorkspaceTasks = (currentWorkspace.projects || []).filter(Boolean).flatMap((project) => {
+        if (!userId || !currentWorkspace) return [];
+        return (currentWorkspace.projects || []).filter(Boolean).flatMap((project) => {
             return (project.tasks || []).filter((task) => task?.assignee?.id === userId);
         });
-
-        setMyTasks(currentWorkspaceTasks);
-    }
-
-    useEffect(() => {
-        fetchUserTasks()
-    }, [currentWorkspace])
+    }, [currentWorkspace, user?.id]);
 
     return (
         <div className="mt-6 px-3">

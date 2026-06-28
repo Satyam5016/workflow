@@ -1,5 +1,7 @@
 import prisma from "../configs/prisma.js";
 import { clerkClient } from "@clerk/express";
+import { createNotification } from "../utils/notificationService.js";
+import { userHasWorkspacePermission, WorkspacePermission } from "../utils/permissions.js";
 
 // Ensure the authenticated user and all of their Clerk org memberships
 // exist in our DB. Lets the app work even when the Clerk → Inngest webhook
@@ -46,7 +48,8 @@ const syncUserAndWorkspacesFromClerk = async (userId) => {
             },
         });
 
-        const role = String(membership.role || "").toLowerCase().includes("admin") ? "ADMIN" : "MEMBER";
+        const clerkRole = String(membership.role || "").toLowerCase();
+        const role = clerkRole.includes("admin") ? "ADMIN" : clerkRole.includes("manager") ? "MANAGER" : "MEMBER";
         await prisma.workspaceMember.upsert({
             where: { userId_workspaceId: { userId, workspaceId: org.id } },
             update: { role },
@@ -74,9 +77,53 @@ export const getUserWorkspaces = async (req, res) => {
                 members: { include: { user: true } },
                 projects: {
                     include: {
-                        tasks: { include: { assignee: true, comments: { include: { user: true } } } },
-                        members: { include: { user: true } }
+                        tasks: {
+                            include: {
+                                assignee: true,
+                                comments: { include: { user: true } },
+                                attachments: { include: { user: true }, orderBy: { createdAt: "desc" } },
+                                subtasks: { orderBy: { createdAt: "asc" } },
+                                milestone: true,
+                                labels: true,
+                                timeEntries: { include: { user: true }, orderBy: { loggedAt: "desc" } },
+                                dependsOn: { select: { id: true, title: true, status: true, due_date: true, priority: true } },
+                                blockedBy: { select: { id: true, title: true, status: true, due_date: true, priority: true } }
+                            }
+                        },
+                        milestones: {
+                            include: {
+                                tasks: {
+                                    include: {
+                                        assignee: true,
+                                        labels: true,
+                                        dependsOn: { select: { id: true, title: true, status: true } },
+                                        blockedBy: { select: { id: true, title: true, status: true } },
+                                    }
+                                }
+                            },
+                            orderBy: [{ due_date: "asc" }, { createdAt: "asc" }]
+                        },
+                        labels: { orderBy: { name: "asc" } },
+                        members: { include: { user: true } },
+                        activities: {
+                            include: {
+                                user: true,
+                                task: { select: { id: true, title: true, status: true } },
+                                project: { select: { id: true, name: true } }
+                            },
+                            orderBy: { createdAt: "desc" },
+                            take: 20
+                        }
                     }
+                },
+                activities: {
+                    include: {
+                        user: true,
+                        task: { select: { id: true, title: true, status: true } },
+                        project: { select: { id: true, name: true } }
+                    },
+                    orderBy: { createdAt: "desc" },
+                    take: 30
                 },
                 owner: true
             }
@@ -104,7 +151,7 @@ export const addMember = async (req, res) => {
             return res.status(400).json({ message: "Missing required parameters" })
         }
 
-        if (!["ADMIN", "MEMBER"].includes(role)) {
+        if (!["ADMIN", "MANAGER", "MEMBER"].includes(role)) {
             return res.status(400).json({ message: "Invalid role" })
         }
 
@@ -118,9 +165,9 @@ export const addMember = async (req, res) => {
         }
 
         // Check creator has admin role
-        if (!workspace.members.find((member) => member.userId === userId && member.role === "ADMIN")) {
+        if (!userHasWorkspacePermission(workspace, userId, WorkspacePermission.INVITE_MEMBERS)) {
             return res.status(401).json({
-                message: "You do not have admin privileges"
+                message: "You do not have permission to invite workspace members"
             })
         }
         // Check if user is already a member
@@ -138,6 +185,18 @@ export const addMember = async (req, res) => {
                 message
             }
         })
+
+        await createNotification({
+            userId: user.id,
+            type: "WORKSPACE_INVITE",
+            title: "Added to workspace",
+            message: `You were added to "${workspace.name}" as ${role.toLowerCase()}`,
+            link: "/dashboard",
+            metadata: {
+                workspaceId,
+                role,
+            },
+        });
 
         res.json({ member, message: "Member added successfully" })
 

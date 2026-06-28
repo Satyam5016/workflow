@@ -1,8 +1,39 @@
 import { Inngest } from "inngest";
 import prisma from "../configs/prisma.js"; // adjust path if needed
 import sendEmail from "../configs/nodemailer.js";
+import { createNotification, taskLink } from "../utils/notificationService.js";
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "work--flow" });
+
+const DAY_BEFORE_DEADLINE_MS = 24 * 60 * 60 * 1000;
+
+const normalizeWorkspaceRole = (role = "") => {
+  const normalized = String(role).toLowerCase();
+  if (normalized.includes("admin")) return "ADMIN";
+  if (normalized.includes("manager")) return "MANAGER";
+  return "MEMBER";
+};
+
+const buildTaskEmail = ({ task, taskUrl, intro, footer }) => `<div style="max-width: 600px;">
+  <h2>Hi ${task.assignee.name},</h2>
+
+  <p style="font-size: 16px;">${intro}</p>
+  <p style="font-size: 18px; font-weight: bold; color: #007bff; margin: 8px 0;">${task.title}</p>
+
+  <div style="border: 1px solid #ddd; padding: 12px 16px; border-radius: 6px; margin-bottom: 30px;">
+    <p style="margin: 6px 0;"><strong>Project:</strong> ${task.project.name}</p>
+    <p style="margin: 6px 0;"><strong>Description:</strong> ${task.description || "No description"}</p>
+    <p style="margin: 6px 0;"><strong>Due Date:</strong> ${new Date(task.due_date).toLocaleDateString()}</p>
+  </div>
+
+  <a href="${taskUrl}" style="background-color: #007bff; padding: 12px 24px; border-radius: 5px; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none;">
+    View Task
+  </a>
+
+  <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
+    ${footer}
+  </p>
+</div>`;
 
 
 // Inngest Function to save user data to a database
@@ -124,7 +155,7 @@ const syncWorkspaceMemberCreation = inngest.createFunction(
       data: {
         userId: data.user_id,
         workspaceId: data.organization_id,
-        role: String(data.role_name).toUpperCase(),
+        role: normalizeWorkspaceRole(data.role_name || data.role),
       }
     })
   }
@@ -154,79 +185,102 @@ const sendTaskAssignmentEmail = inngest.createFunction(
       return;
     }
 
-    const taskLink = `${baseUrl}/taskDetails?projectId=${task.projectId}&taskId=${taskId}`;
+    const taskUrl = `${baseUrl}/taskDetails?projectId=${task.projectId}&taskId=${taskId}`;
 
     console.log("Sending assignment email to:", task.assignee.email);
     try {
       await sendEmail({
         to: task.assignee.email,
         subject: `New Task Assigned: ${task.title}`,
-        body: `<div style="max-width: 600px;">
-  <h2>Hi ${task.assignee.name}, 👋</h2>
-
-  <p style="font-size: 16px;">You've been assigned a new task:</p>
-  <p style="font-size: 18px; font-weight: bold; color: #007bff; margin: 8px 0;">${task.title}</p>
-
-  <div style="border: 1px solid #ddd; padding: 12px 16px; border-radius: 6px; margin-bottom: 30px;">
-    <p style="margin: 6px 0;"><strong>Description:</strong> ${task.description}</p>
-    <p style="margin: 6px 0;"><strong>Due Date:</strong> ${new Date(task.due_date).toLocaleDateString()}</p>
-  </div>
-
-  <a href="${taskLink}" style="background-color: #007bff; padding: 12px 24px; border-radius: 5px; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none;">
-    View Task
-  </a>
-
-  <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
-    Please make sure to review and complete it before the due date.
-  </p>
-</div>`
+        body: buildTaskEmail({
+          task,
+          taskUrl,
+          intro: "You've been assigned a new task:",
+          footer: "Please make sure to review and complete it before the due date.",
+        })
       })
       console.log("Assignment email sent successfully to:", task.assignee.email);
     } catch (error) {
       console.error("Failed to send assignment email:", error);
     }
-    if (new Date(task.due_date).toLocaleDateString() !== new Date().toDateString()) {
-      await step.sleepUntil('wait-for-the-due-date', new Date(task.due_date));
+    const dueDate = new Date(task.due_date);
+    const reminderDate = new Date(dueDate.getTime() - DAY_BEFORE_DEADLINE_MS);
+    const now = new Date();
 
-      await step.run('check-if-task-is-completed', async () => {
-        const task = await prisma.task.findUnique({
+    if (dueDate > now) {
+      if (reminderDate > now) {
+        await step.sleepUntil('wait-until-24-hours-before-due-date', reminderDate);
+      }
+
+      await step.run('send-before-deadline-reminder-if-needed', async () => {
+        const latestTask = await prisma.task.findUnique({
           where: { id: taskId },
           include: { assignee: true, project: true }
         })
 
-        if (!task) return;
+        if (!latestTask || !latestTask.assignee?.email || latestTask.status === "DONE") return;
+        if (new Date(latestTask.due_date) <= new Date()) return;
 
-        if (task.status !== "DONE") {
-          await step.run('send-task-reminder-mail', async () => {
-            await sendEmail({
-              to: task.assignee.email,
-              subject: `Reminder: for ${task.project.name}`,
-              body: `<div style="max-width: 600px;">
-  <h2>Hi ${task.assignee.name}, 👋</h2>
+        await createNotification({
+          userId: latestTask.assigneeId,
+          type: "TASK_DUE_SOON",
+          title: "Task due soon",
+          message: `"${latestTask.title}" is due on ${new Date(latestTask.due_date).toLocaleDateString()}`,
+          link: taskLink(latestTask),
+          metadata: {
+            taskId,
+            projectId: latestTask.projectId,
+            dueDate: latestTask.due_date,
+          },
+        });
 
-  <p style="font-size: 16px;">You have a task due in ${task.project.name}:</p>
-  <p style="font-size: 18px; font-weight: bold; color: #007bff; margin: 8px 0;">${task.title}</p>
-
-  <div style="border: 1px solid #ddd; padding: 12px 16px; border-radius: 6px; margin-bottom: 30px;">
-    <p style="margin: 6px 0;">
-      <strong>Description:</strong> ${task.description}</p>
-    <p style="margin: 6px 0;"><strong>Due Date:</strong> ${new Date(task.due_date).toLocaleDateString()}</p>
-  </div>
-
-  <a href="${taskLink}" style="background-color: #007bff; padding: 12px 24px; border-radius: 5px; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none;">
-    View Task
-  </a>
-
-  <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
-    Please make sure to review and complete it before the due date.
-  </p>
-</div>`
-            })
+        await sendEmail({
+          to: latestTask.assignee.email,
+          subject: `Due soon: ${latestTask.title}`,
+          body: buildTaskEmail({
+            task: latestTask,
+            taskUrl: `${baseUrl}${taskLink(latestTask)}`,
+            intro: `This task is due soon in ${latestTask.project.name}:`,
+            footer: "Please review it before the deadline.",
           })
-        }
-
+        })
       })
+
+      await step.sleepUntil('wait-for-the-due-date', dueDate);
     }
+
+    await step.run('send-due-date-reminder-if-needed', async () => {
+      const latestTask = await prisma.task.findUnique({
+        where: { id: taskId },
+        include: { assignee: true, project: true }
+      })
+
+      if (!latestTask || !latestTask.assignee?.email || latestTask.status === "DONE") return;
+
+      await createNotification({
+        userId: latestTask.assigneeId,
+        type: "TASK_DUE",
+        title: "Task due now",
+        message: `"${latestTask.title}" has reached its deadline`,
+        link: taskLink(latestTask),
+        metadata: {
+          taskId,
+          projectId: latestTask.projectId,
+          dueDate: latestTask.due_date,
+        },
+      });
+
+      await sendEmail({
+        to: latestTask.assignee.email,
+        subject: `Deadline reminder: ${latestTask.title}`,
+        body: buildTaskEmail({
+          task: latestTask,
+          taskUrl: `${baseUrl}${taskLink(latestTask)}`,
+          intro: `This task has reached its deadline in ${latestTask.project.name}:`,
+          footer: "Please update the task status when it is complete.",
+        })
+      })
+    })
   }
 )
 

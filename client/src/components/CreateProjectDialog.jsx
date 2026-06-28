@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { XIcon } from "lucide-react";
+import { CalendarDaysIcon, FlagIcon, FolderPlusIcon, UserRoundIcon, UsersIcon, XIcon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import api from "../configs/api";
 import { useAuth } from "@clerk/clerk-react";
@@ -53,37 +53,46 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     if (!isDialogOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur flex items-center justify-center text-left z-50">
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-lg text-zinc-900 dark:text-zinc-200 relative">
-                <button className="absolute top-3 right-3 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" onClick={() => setIsDialogOpen(false)} >
+        <div className="fixed inset-0 bg-slate-950/35 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center text-left z-50 p-4 animate-rise-in">
+            <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-2xl shadow-slate-950/20 w-full max-w-2xl max-h-[92vh] overflow-hidden text-slate-900 dark:text-zinc-100 relative">
+                <button className="absolute top-4 right-4 size-9 inline-flex items-center justify-center rounded-lg text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 hover:text-slate-800 dark:hover:text-zinc-100" onClick={() => setIsDialogOpen(false)} title="Close">
                     <XIcon className="size-5" />
                 </button>
 
-                <h2 className="text-xl font-medium mb-1">Create New Project</h2>
-                {currentWorkspace && (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                        In workspace: <span className="text-blue-600 dark:text-blue-400">{currentWorkspace.name}</span>
-                    </p>
-                )}
+                <div className="border-b border-slate-200 dark:border-zinc-800 p-6 pr-14 bg-slate-50/70 dark:bg-zinc-900/40">
+                    <div className="flex items-center gap-3">
+                        <div className="size-11 rounded-lg bg-teal-100 dark:bg-teal-500/10 text-teal-700 dark:text-teal-300 flex items-center justify-center">
+                            <FolderPlusIcon className="size-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-semibold">Create New Project</h2>
+                            {currentWorkspace && (
+                                <p className="text-sm text-slate-500 dark:text-zinc-400">
+                                    Workspace: <span className="text-teal-700 dark:text-teal-300">{currentWorkspace.name}</span>
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5 overflow-y-auto max-h-[calc(92vh-6.5rem)] p-6">
                     {/* Project Name */}
                     <div>
-                        <label className="block text-sm mb-1">Project Name</label>
-                        <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter project name" className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" required />
+                        <label className="block text-sm font-medium mb-1.5">Project Name</label>
+                        <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Website redesign, mobile app launch..." className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" required />
                     </div>
 
                     {/* Description */}
                     <div>
-                        <label className="block text-sm mb-1">Description</label>
-                        <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe your project" className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm h-20" />
+                        <label className="block text-sm font-medium mb-1.5">Description</label>
+                        <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Goal, scope, stakeholders, or success criteria" className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" />
                     </div>
 
                     {/* Status & Priority */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm mb-1">Status</label>
-                            <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" >
+                            <label className="text-sm font-medium mb-1.5 flex items-center gap-2"><FlagIcon className="size-4 text-slate-400" /> Status</label>
+                            <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" >
                                 <option value="PLANNING">Planning</option>
                                 <option value="ACTIVE">Active</option>
                                 <option value="COMPLETED">Completed</option>
@@ -93,8 +102,8 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         </div>
 
                         <div>
-                            <label className="block text-sm mb-1">Priority</label>
-                            <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" >
+                            <label className="block text-sm font-medium mb-1.5">Priority</label>
+                            <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" >
                                 <option value="LOW">Low</option>
                                 <option value="MEDIUM">Medium</option>
                                 <option value="HIGH">High</option>
@@ -103,21 +112,21 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     </div>
 
                     {/* Dates */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm mb-1">Start Date</label>
-                            <input type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" />
+                            <label className="text-sm font-medium mb-1.5 flex items-center gap-2"><CalendarDaysIcon className="size-4 text-slate-400" /> Start Date</label>
+                            <input type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" />
                         </div>
                         <div>
-                            <label className="block text-sm mb-1">End Date</label>
-                            <input type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} min={formData.start_date && new Date(formData.start_date).toISOString().split('T')[0]} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" />
+                            <label className="block text-sm font-medium mb-1.5">End Date</label>
+                            <input type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} min={formData.start_date && new Date(formData.start_date).toISOString().split('T')[0]} className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" />
                         </div>
                     </div>
 
                     {/* Lead */}
                     <div>
-                        <label className="block text-sm mb-1">Project Lead</label>
-                        <select value={formData.team_lead} onChange={(e) => setFormData({ ...formData, team_lead: e.target.value, team_members: e.target.value ? [...new Set([...formData.team_members, e.target.value])] : formData.team_members, })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" >
+                        <label className="text-sm font-medium mb-1.5 flex items-center gap-2"><UserRoundIcon className="size-4 text-slate-400" /> Project Lead</label>
+                        <select value={formData.team_lead} onChange={(e) => setFormData({ ...formData, team_lead: e.target.value, team_members: e.target.value ? [...new Set([...formData.team_members, e.target.value])] : formData.team_members, })} className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500" >
                             <option value="">No lead</option>
                             {currentWorkspace?.members?.map((member) => (
                                 <option key={member.user.email} value={member.user.email}>
@@ -129,8 +138,8 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
                     {/* Team Members */}
                     <div>
-                        <label className="block text-sm mb-1">Team Members</label>
-                        <select className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm"
+                        <label className="text-sm font-medium mb-1.5 flex items-center gap-2"><UsersIcon className="size-4 text-slate-400" /> Team Members</label>
+                        <select className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500"
                             onChange={(e) => {
                                 if (e.target.value && !formData.team_members.includes(e.target.value)) {
                                     setFormData((prev) => ({ ...prev, team_members: [...prev.team_members, e.target.value] }));
@@ -139,7 +148,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         >
                             <option value="">Add team members</option>
                             {currentWorkspace?.members
-                                ?.filter((email) => !formData.team_members.includes(email))
+                                ?.filter((member) => !formData.team_members.includes(member.user.email))
                                 .map((member) => (
                                     <option key={member.user.email} value={member.user.email}>
                                         {member.user.email}
@@ -150,9 +159,9 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         {formData.team_members.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                                 {formData.team_members.map((email) => (
-                                    <div key={email} className="flex items-center gap-1 bg-blue-200/50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-md text-sm" >
+                                    <div key={email} className="flex items-center gap-1 bg-teal-50 dark:bg-teal-500/10 text-teal-800 dark:text-teal-300 border border-teal-100 dark:border-teal-500/20 px-2 py-1 rounded-md text-sm" >
                                         {email}
-                                        <button type="button" onClick={() => removeTeamMember(email)} className="ml-1 hover:bg-blue-300/30 dark:hover:bg-blue-500/30 rounded" >
+                                        <button type="button" onClick={() => removeTeamMember(email)} className="ml-1 hover:bg-teal-100 dark:hover:bg-teal-500/20 rounded" title="Remove member">
                                             <XIcon className="w-3 h-3" />
                                         </button>
                                     </div>
@@ -162,11 +171,11 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-end gap-3 pt-2 text-sm">
-                        <button type="button" onClick={() => setIsDialogOpen(false)} className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800" >
+                    <div className="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-3 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 p-4 text-sm backdrop-blur">
+                        <button type="button" onClick={() => setIsDialogOpen(false)} className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-900" >
                             Cancel
                         </button>
-                        <button disabled={isSubmitting || !currentWorkspace} className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200" >
+                        <button disabled={isSubmitting || !currentWorkspace} className="px-5 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 shadow-lg shadow-teal-600/20" >
                             {isSubmitting ? "Creating..." : "Create Project"}
                         </button>
                     </div>

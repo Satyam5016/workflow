@@ -7,7 +7,7 @@
   "scripts": {
     "postinstall": "npx prisma generate",
     "start": "prisma generate && node server.js",
-    "server": "nodemon server.js"
+    "server": "prisma generate && nodemon server.js"
   },
   "keywords": [],
   "author": "",

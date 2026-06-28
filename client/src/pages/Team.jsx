@@ -24,42 +24,40 @@ const Team = () => {
     }, [currentWorkspace]);
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
-            {/* Header */}
+        <div className="space-y-6">
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">Team</h1>
-                    <p className="text-gray-500 dark:text-zinc-400 text-sm">
-                        Manage team members and their contributions
+                    <h1 className="text-2xl sm:text-3xl font-semibold text-slate-950 dark:text-white mb-1">Team</h1>
+                    <p className="text-slate-500 dark:text-zinc-400 text-sm">
+                        Manage workspace roles, collaborators, and contributions.
                     </p>
                 </div>
-                <button onClick={() => setIsDialogOpen(true)} className="flex items-center px-5 py-2 rounded text-sm bg-gradient-to-br from-blue-500 to-blue-600 hover:opacity-90 text-white transition" >
+                <button onClick={() => setIsDialogOpen(true)} className="inline-flex items-center px-5 py-2.5 rounded-lg text-sm bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/20 transition" >
                     <UserPlus className="w-4 h-4 mr-2" /> Invite Member
                 </button>
                 <InviteMemberDialog isDialogOpen={isDialogOpen} setIsDialogOpen={setIsDialogOpen} />
             </div>
+            </div>
 
-            {/* Stats Cards */}
-            <div className="flex flex-wrap gap-4">
-                {/* Total Members */}
-                <div className="max-sm:w-full dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-gray-300 dark:border-zinc-800 rounded-lg p-6">
-                    <div className="flex items-center justify-between gap-8 md:gap-22">
+            <div className="grid gap-4 md:grid-cols-3">
+                <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm">
+                    <div className="flex items-center justify-between gap-6">
                         <div>
-                            <p className="text-sm text-gray-500 dark:text-zinc-400">Total Members</p>
-                            <p className="text-xl font-bold text-gray-900 dark:text-white">{users.length}</p>
+                            <p className="text-sm text-slate-500 dark:text-zinc-400">Total Members</p>
+                            <p className="text-2xl font-bold text-slate-950 dark:text-white">{users.length}</p>
                         </div>
-                        <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-500/10">
-                            <UsersIcon className="size-4 text-blue-500 dark:text-blue-200" />
+                        <div className="p-3 rounded-xl bg-teal-100 dark:bg-teal-500/10">
+                            <UsersIcon className="size-4 text-teal-600 dark:text-teal-200" />
                         </div>
                     </div>
                 </div>
 
-                {/* Active Projects */}
-                <div className="max-sm:w-full dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-gray-300 dark:border-zinc-800 rounded-lg p-6">
-                    <div className="flex items-center justify-between gap-8 md:gap-22">
+                <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm">
+                    <div className="flex items-center justify-between gap-6">
                         <div>
-                            <p className="text-sm text-gray-500 dark:text-zinc-400">Active Projects</p>
-                            <p className="text-xl font-bold text-gray-900 dark:text-white">
+                            <p className="text-sm text-slate-500 dark:text-zinc-400">Active Projects</p>
+                            <p className="text-2xl font-bold text-slate-950 dark:text-white">
                                 {projects.filter((p) => p.status !== "CANCELLED" && p.status !== "COMPLETED").length}
                             </p>
                         </div>
@@ -69,12 +67,11 @@ const Team = () => {
                     </div>
                 </div>
 
-                {/* Total Tasks */}
-                <div className="max-sm:w-full dark:bg-gradient-to-br dark:from-zinc-800/70 dark:to-zinc-900/50 border border-gray-300 dark:border-zinc-800 rounded-lg p-6">
-                    <div className="flex items-center justify-between gap-8 md:gap-22">
+                <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-5 shadow-sm">
+                    <div className="flex items-center justify-between gap-6">
                         <div>
-                            <p className="text-sm text-gray-500 dark:text-zinc-400">Total Tasks</p>
-                            <p className="text-xl font-bold text-gray-900 dark:text-white">{tasks.length}</p>
+                            <p className="text-sm text-slate-500 dark:text-zinc-400">Total Tasks</p>
+                            <p className="text-2xl font-bold text-slate-950 dark:text-white">{tasks.length}</p>
                         </div>
                         <div className="p-3 rounded-xl bg-purple-100 dark:bg-purple-500/10">
                             <Shield className="size-4 text-purple-500 dark:text-purple-200" />
@@ -83,13 +80,11 @@ const Team = () => {
                 </div>
             </div>
 
-            {/* Search */}
             <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-zinc-400 size-3" />
-                <input placeholder="Search team members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 w-full text-sm rounded-md border border-gray-300 dark:border-zinc-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-400 py-2 focus:outline-none focus:border-blue-500" />
+                <input placeholder="Search team members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-full text-sm rounded-lg border border-slate-200 bg-white dark:bg-zinc-950 dark:border-zinc-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 py-2.5 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20" />
             </div>
 
-            {/* Team Members */}
             <div className="w-full">
                 {filteredUsers.length === 0 ? (
                     <div className="col-span-full text-center py-16">
@@ -108,9 +103,8 @@ const Team = () => {
                         </p>
                     </div>
                 ) : (
-                    <div className="max-w-4xl w-full">
-                        {/* Desktop Table */}
-                        <div className="hidden sm:block overflow-x-auto rounded-md border border-gray-200 dark:border-zinc-800">
+	                    <div className="w-full">
+	                        <div className="hidden sm:block overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
                             <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
                                 <thead className="bg-gray-50 dark:bg-zinc-900/50">
                                     <tr>

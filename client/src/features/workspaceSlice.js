@@ -1,20 +1,24 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { dummyWorkspaces } from "../assets/assets";
 import api from "../configs/api";
 
-export const fetchWorkspaces = createAsyncThunk('workspace/fetchWorkspaces', async ({ getToken }) => {
-    try {
-        const { data } = await api.get('/api/workspaces', {
-            headers: {
-                Authorization:
-                    `Bearer ${await getToken()}`
+export const fetchWorkspaces = createAsyncThunk('workspace/fetchWorkspaces', async ({ getToken, expectWorkspace = false, retries = 5 } = {}) => {
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const { data } = await api.get('/api/workspaces', {
+                headers: { Authorization: `Bearer ${await getToken()}` }
+            })
+            const workspaces = data.workspaces || []
+            if (!expectWorkspace || workspaces.length > 0 || attempt === retries) {
+                return workspaces
             }
-        })
-        return data.workspaces || []
-    } catch (error) {
-        console.log(error?.response?.data?.message || error.message)
-        return []
+        } catch (error) {
+            console.log(error?.response?.data?.message || error.message)
+            if (attempt === retries) return []
+        }
+        await delay(1500)
     }
+    return []
 })
 
 const initialState = {
